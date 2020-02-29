@@ -1,12 +1,9 @@
 package api
 
 import (
-	"github.com/OhYee/blotter/api/pkg/user"
-	"github.com/OhYee/blotter/mongo"
-	"github.com/OhYee/blotter/output"
 	"github.com/OhYee/blotter/register"
+	"github.com/OhYee/checkin-server/api/pkg/user"
 	"github.com/OhYee/rainbow/errors"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type LoginRequest struct {
@@ -26,24 +23,7 @@ func Login(context *register.HandleContext) (err error) {
 
 	context.RequestParams(args)
 
-	password := user.PasswordHash(args.Username + args.Password)
-	output.Log("%s", password)
-
-	count, err := mongo.Find("checkin", "users", bson.M{
-		"username": args.Username,
-		"password": password,
-	}, nil, nil)
-
-	if count != 0 {
-		res.Token = user.GenerateToken()
-		if _, err = mongo.Update("checkin", "users", bson.M{
-			"username": args.Username,
-		}, bson.M{
-			"$set": bson.M{"token": res.Token},
-		}, nil); err != nil {
-			return err
-		}
-	}
+	res.Token = user.Login(args.Username, args.Password)
 
 	err = context.ReturnJSON(res)
 	return
@@ -63,13 +43,39 @@ func Logout(context *register.HandleContext) (err error) {
 
 	context.RequestParams(args)
 
-	result, err := mongo.Update("checkin", "users", bson.M{
-		"token": args.Token,
-	}, bson.M{
-		"token": "",
-	}, nil)
+	res.Success = user.Logout(args.Token)
 
-	res.Success = result.ModifiedCount != 0
+	err = context.ReturnJSON(res)
+	return
+}
+
+type InfoRequest struct {
+	Token string `json:"token"`
+}
+
+type InfoResponse struct {
+	Money   int64 `json:"money"`
+	Day     int64 `json:"day"`
+	Lottery int64 `json:"lottery"`
+}
+
+func Info(context *register.HandleContext) (err error) {
+	defer errors.Wrapper(&err)
+
+	args := new(InfoRequest)
+	res := new(InfoResponse)
+
+	context.RequestParams(args)
+
+	username := user.CheckToken(args.Token)
+	if username == "" {
+		context.Forbidden()
+		return
+	}
+	// ================================
+	if res.Money, res.Day, res.Lottery, err = user.Info(username); err != nil {
+		return
+	}
 
 	err = context.ReturnJSON(res)
 	return
