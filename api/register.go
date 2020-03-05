@@ -11,4 +11,5 @@ func Register() {
 	register.Register("logout", Logout)
 	register.Register("info", Info)
 	register.Register("checkin", CheckIn)
+	register.Register("menstruation", Menstruation)
 }

@@ -2,6 +2,7 @@ package date
 
 import (
 	"math/rand"
+	"time"
 
 	"github.com/OhYee/blotter/mongo"
 	"github.com/OhYee/blotter/output"
@@ -17,11 +18,12 @@ func set(username string, date int64, insert bson.M) (err error) {
 	datetime := timeToString(date)
 
 	defaultValue := bson.M{
-		"date":     datetime,
-		"username": username,
-		"money":    -1,
-		"weight":   0,
-		"note":     "",
+		"date":         datetime,
+		"username":     username,
+		"money":        -1,
+		"weight":       0,
+		"note":         "",
+		"menstruation": false,
 	}
 
 	dv := bson.M{}
@@ -84,6 +86,10 @@ func Get(username string, date int64) (data Data, err error) {
 func CheckIn(username string, date int64) (money int64, day int64, lottery int64, err error) {
 	defer errors.Wrapper(&err)
 
+	if t1, t2 := time.Now().Format("2006-01-02"), timeToString(date); t1 != t2 {
+		errors.New("Server time is %s, but client time is %s", t1, t2)
+	}
+
 	todayData, err := Get(username, date)
 	if err != nil {
 		return
@@ -100,7 +106,7 @@ func CheckIn(username string, date int64) (money int64, day int64, lottery int64
 		return
 	}
 
-	if data.Money != -1 {
+	if data.Money != -1 || data.Menstruation {
 		// 签到数增加
 		_, err = mongo.Update("checkin", "users", bson.M{
 			"username": username,
@@ -134,6 +140,17 @@ func CheckIn(username string, date int64) (money int64, day int64, lottery int64
 		date,
 		bson.M{
 			"money": money,
+		},
+	)
+	return
+}
+
+func Menstruation(username string, date int64) (err error) {
+	err = set(
+		username,
+		date,
+		bson.M{
+			"menstruation": true,
 		},
 	)
 	return

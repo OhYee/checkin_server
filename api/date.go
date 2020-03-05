@@ -104,3 +104,36 @@ func CheckIn(context *register.HandleContext) (err error) {
 	err = context.ReturnJSON(res)
 	return
 }
+
+type MenstruationRequest struct {
+	Date  int64  `json:"date"`
+	Token string `json:"token"`
+}
+
+type MenstruationResponse Response
+
+func Menstruation(context *register.HandleContext) (err error) {
+	defer errors.Wrapper(&err)
+
+	args := new(MenstruationRequest)
+	res := new(MenstruationResponse)
+
+	context.RequestParams(args)
+
+	username := user.CheckToken(args.Token)
+	if username == "" {
+		context.Forbidden()
+		return
+	}
+	// ================================
+
+	err = date.Menstruation(username, args.Date)
+	if err != nil {
+		return
+	}
+	output.Debug("%+v", err)
+
+	res.Success = true
+	err = context.ReturnJSON(res)
+	return
+}
